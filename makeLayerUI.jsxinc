@@ -1,0 +1,394 @@
+  // -------------------------------------------------------------------------------
+	// レイヤーパネルのリサイズ処理
+	//	--------------------------------------------------------------------------
+	//	wRatio : パネルサイズの比率
+	//	--------------------------------------------------------------------------
+	//	uiBase : ベースグループ
+	//		uiBase.size : パネルサイズ（幅、高さ）
+	//	--------------------------------------------------------------------------
+	//	uiPnl : レイヤーパネル
+	//		uiPnl.location : パネルの有効化情報（true:有効/false:無効）
+	//		uiPnl.size     : パネルサイズ（幅、高さ）
+	//	--------------------------------------------------------------------------
+	//	uiPnl.uiText : テキストクラス
+	//		uiPnl.uiText.size : テキストサイズ（幅、高さ）
+	//	--------------------------------------------------------------------------
+	//	uiPnl.uiGrp : グループ
+	//		uiPnl.uiGrp.bounds : パネル範囲（左上座標、右下座標）
+	// -------------------------------------------------------------------------------
+	function setPanelSize ( uiBase )
+	{
+		uiBase.size.width = ( uiBase.parent.size[0] - 20 );
+		var wRatio = ( uiBase.size[0] / uiBase.duration );
+		for ( var i in uiBase.uiPnl )
+		{
+			var uiPnl = uiBase.uiPnl[i];
+			uiPnl.location.x = ( uiPnl.inPoint  * wRatio );
+			uiPnl.size.width = ( uiPnl.duration * wRatio );
+			uiPnl.uiText.size.width = ( uiPnl.size[0] - 20 );
+			if ( !uiPnl.uiGrp ) continue;
+			uiPnl.uiGrp.bounds.right = ( uiPnl.size.width - 10 );
+			setPanelSize ( uiPnl.uiGrp.uiBase );
+		}
+	}
+	// -------------------------------------------------------------------------------
+	// シーケンスの現行選択の全尺取得
+	// -------------------------------------------------------------------------------
+	function getTotalLength ( uiGrp )
+	{
+		var max = 0;
+		for ( var i in uiGrp.uiBase )
+		{
+			if ( !uiGrp.uiBase[i].enabled ||
+				( uiGrp.uiBase[i].uiPnl[0].uiText instanceof RadioButton
+				&& !uiGrp.uiBase[i].uiPnl[0].uiText.value ) ) continue;
+			var total = 0;
+			for ( var pn in uiGrp.uiBase[i].uiPnl )
+			{
+				if ( !uiGrp.uiBase[i].uiPnl[pn].enabled ) continue;
+				total +=  ( uiGrp.uiBase[i].uiPnl[pn].uiGrp ) ?
+				getTotalLength(uiGrp.uiBase[i].uiPnl[pn].uiGrp) :
+				( uiGrp.uiBase[i].uiPnl[pn].outPoint -
+						uiGrp.uiBase[i].uiPnl[pn].inPoint );
+			}
+			if ( max < total ) max = total;
+		}
+		return max;
+	}
+	function switchColor ( uiPnl, Flag )
+	{
+		uiPnl.uiText.value = Flag;
+		var graphics = uiPnl.graphics;
+		if ( Flag ) graphics.backgroundColor = uiPnl.BGC;
+		else graphics.backgroundColor = graphics.disabledBackgroundColor;
+	}
+	// -------------------------------------------------------------------------------
+	// ラジオボタン選択時処理
+	//	( uiMain or uiPnl ).uiGrp.uiBase.uiPnl.uiText
+	//	--------------------------------------------------------------------------
+	//	max : 表示の最長尺格納変数
+	//	--------------------------------------------------------------------------
+	//	layers : AEレイヤー情報格納配列
+	//	--------------------------------------------------------------------------
+	//	uiBase : レイヤーグループのベースグループ
+	// -------------------------------------------------------------------------------
+	function onClickRBtn ()
+	{
+		var max = 0;
+		var uiBase = this.parent.parent;
+		var layers = ( uiBase.parent.parent.layer instanceof AVLayer ) ?
+			uiBase.parent.parent.layer.source.layers : 
+				uiBase.parent.parent.layer.layers;
+		for ( var i in uiBase.uiPnl )
+		{
+			// ---------------------------------------------------------------
+			// ラジオボタンの選択情報（ON/OFF）取得処理
+			//	----------------------------------------------------------
+			//	flag : 選択情報格納変数（true/false）
+			//	----------------------------------------------------------
+			//	uiPnl : レイヤーパネル
+			// ---------------------------------------------------------------
+			if ( uiBase.uiPnl[i].uiText instanceof StaticText ) continue;
+			var flag = ( i ==  this.parent.id ) ? true : false;
+			switchColor ( uiBase.uiPnl[i], flag );
+			var uiPnl = uiBase.uiPnl[i];
+			do {
+				if ( !uiPnl.active ) break;
+				if ( uiPnl.pID ) uiPnl.enabled = flag;
+				layers[uiPnl.id].enabled = flag;
+				if ( flag ) max = layers[uiPnl.id].outPoint;
+				// -------------------------------------------------------
+				// リンクレイヤーの処理
+				//	--------------------------------------------------
+				//	id : リンクレイヤーのID
+				//	--------------------------------------------------
+				//	uiBase : レイヤーグループのベースグループ
+				//		uiBase.uiPnl[1-].active  : パネル有効情報
+				//		uiBase.uiPnl[1-].enabled : パネル表示情報
+				//		uiBase.uiPnl[1-].cID     : 子ID
+				// -------------------------------------------------------
+				if ( uiPnl.links )
+				{
+					for ( var s in uiPnl.links )
+					{
+						var id = uiPnl.links[s];
+						if ( !uiBase.uiPnl[id].active ) continue;
+						do {
+							uiBase.uiPnl[id].enabled = flag;
+							layers[id].enabled       = flag;
+							id = uiBase.uiPnl[id].cID;
+						} while ( id )
+					}
+				}
+				// -------------------------------------------------------
+				// uiPnlの置き換え
+				//	--------------------------------------------------
+				//	uiPnl : レイヤーパネル
+				//		uiPnl.cID : 子ID格納クラス
+				// -------------------------------------------------------
+				uiPnl = uiBase.uiPnl[uiPnl.cID];
+			} while ( uiPnl )
+		}
+		// -----------------------------------------------------------------------
+		// 選択による上位レイヤー位置の修正処理
+		// -----------------------------------------------------------------------
+		max = ( ( uiBase.duration * uiObj.fDuration ) - max );
+		var uiGrp  = uiBase.parent;
+		var uiBase = uiGrp.parent.parent;
+		do {
+			var uiPnl  = uiGrp.parent;
+			//alert(uiPnl.uiText.text);
+			//alert(uiBase.comp.name);
+			while ( uiPnl.cID )
+			{
+				uiBase.comp.layers[uiPnl.cID].startTime =
+				( ( uiBase.uiPnl[uiPnl.cID].inPoint * uiObj.fDuration ) -
+					 max );
+				if ( uiBase.uiPnl[uiPnl.cID].links )
+				{
+					do {
+						uiBase.comp.layers[uiPnl.cID].startTime =
+				( ( uiBase.uiPnl[uiPnl.cID].inPoint * uiObj.fDuration ) -
+					 max );
+						id = uiBase.uiPnl[id].cID;
+					} while ( id )
+				}
+				uiPnl = uiBase.uiPnl[uiPnl.cID];
+			}
+			var uiGrp  = uiBase.parent;
+			var uiBase = uiBase.parent.parent.parent;
+		} while ( uiBase );
+	}
+	// -------------------------------------------------------------------------------
+	// レイヤーパネルの設定処理
+	//	--------------------------------------------------------------------------
+	//	uiPnl : レイヤーパネル
+	//		uiPnl.active     : パネルの有効化情報（true:有効/false:無効）
+	//		uiPnl.size       : パネルサイズ（幅、高さ）
+	//		uiPnl.startTime  : レイヤーのstartTime格納
+	//		uiPnl.inPoint    : レイヤー（レイヤーパネル）の表示開始位置
+	//		uiPnl.duration   : レイヤーの表示尺
+	//		uiPnl.lock       : レイヤーロック情報格納
+	//		uiPnl.enabled    : パネルの表示情報（true:表示/false:非表示）
+	//		uiPnl.properties : レイヤーパネルのborderStyleの設定
+	//		uiPnl.BGC        : パネルの背景色格納
+	//		uiPnl.layer      : レイヤー情報（select:コンポのみ）
+	//	--------------------------------------------------------------------------
+	//	uiPnl.uiText : レイヤーパネルテキストクラス（radiobutton/statictext）
+	//		uiText.location      : テキストクラス表示位置（左上座標）
+	//		uiText.size          : テキストクラスサイズ（幅、高さ）
+	//		uiText.text          : テキスト情報（レイヤー名称）
+	//		uiText.helpTip       : コメント情報（レイヤーコメント）
+	//		------------------------------------------------------------------
+	//		uiPnl.uiText.onClick : クリック時処理情報（radiobuttonのみ）
+	//		uiPnl.uiText.value   : ラジオボタンの状態情報
+	// -------------------------------------------------------------------------------
+	function makePanel ( uiPnl, Layer )
+	{
+		// -----------------------------------------------------------------------
+		// パラメータ設定
+		// -----------------------------------------------------------------------
+		if ( Layer.parent ) uiPnl.pID = Layer.parent.index
+		uiPnl.active    = Layer.enabled;
+		uiPnl.size      = [ 0, 35 ];
+		uiPnl.startTime = ( Layer.startTime / uiObj.fDuration );
+		uiPnl.inPoint   = ( Layer.inPoint   / uiObj.fDuration );
+		uiPnl.duration  = ( Layer.outPoint  / uiObj.fDuration ) - uiPnl.inPoint;
+		uiPnl.lock      = Layer.locked;
+		uiPnl.properties = { borderStyle:"raised" };
+		// -----------------------------------------------------------------------
+		// パネルカラーの設定
+		// -----------------------------------------------------------------------
+		var cn = 0;
+		if ( !Layer.parent && Layer("ADBE Effect Parade")("Link") ) cn += 1;
+		if ( Layer("ADBE Marker").numKeys > 0
+				&& Layer("ADBE Marker").keyTime("loop") ) cn += 2;
+		if ( Layer.source instanceof CompItem
+				&& Layer.name.indexOf("select:") == 0 ) cn += 4;
+		if ( ( cn % 2 ) != 0 )
+				uiPnl.link = Layer("ADBE Effect Parade")("Link")(1).value;
+		setObjColor( uiPnl, uiObj.BGColor[cn] );
+		setObjColor( uiPnl, ( ( !uiPnl.active ) ? [ 32, 32, 32 ] :
+				[ ( uiObj.BGColor[cn][0] / 2 ),
+				  ( uiObj.BGColor[cn][1] / 2 ),
+				  ( uiObj.BGColor[cn][2] / 2 ) ] ), 2 );
+		// -----------------------------------------------------------------------
+		// テキスト情報(レイヤー名称とコメント)の設定
+		// -----------------------------------------------------------------------
+		uiPnl.uiText = uiPnl.add( ( !Layer.parent && !uiPnl.link && uiPnl.active
+				&& Layer.containingComp.name.indexOf("select:") == 0 ) ?
+							"radiobutton" : "statictext" );
+		var uiText     = uiPnl.uiText;
+		uiText.location = [ 10, 10 ];
+		uiText.size     = [ ( uiPnl.size[0] - 20 ), ( uiPnl.size[1] - 20 ) ];
+		uiText.text     = Layer.name;
+		uiText.helpTip = ( Layer.comment ) ? Layer.comment : Layer.source.comment;
+		// -----------------------------------------------------------------------
+		// パネルの有効化・無効化
+		// -----------------------------------------------------------------------
+		uiPnl.enabled  = ( uiPnl.active && uiPnl.pID ) ?
+			uiPnl.parent.uiPnl[uiPnl.pID].active : uiPnl.active;
+		// -----------------------------------------------------------------------
+		// レイヤーが選択コンポの場合の処理
+		// -----------------------------------------------------------------------
+		if ( cn > 3 && Layer.source.layers.length > 0 && uiPnl.enabled )
+		{
+			uiPnl.layer = Layer;
+			setSelectComp ( uiPnl, Layer.source );
+		}
+		if ( uiPnl.bounds.bottom > uiPnl.parent.size.height )
+			uiPnl.parent.size.height = uiPnl.bounds.bottom;
+		// -----------------------------------------------------------------------
+		// ラジオボタンの処理
+		// -----------------------------------------------------------------------
+		if ( uiText instanceof StaticText ) return;
+		uiPnl.uiText.onClick  = onClickRBtn;
+		uiPnl.uiText.value    = true;
+		uiPnl.BGC             = uiPnl.graphics.backgroundColor;
+	}
+	// -------------------------------------------------------------------------------
+	// 選択コンポの処理
+	// -------------------------------------------------------------------------------
+	function setSelectComp ( uiPnl, Comp )
+	{
+		// -----------------------------------------------------------------------
+		// uiGrpグループの設置
+		// -----------------------------------------------------------------------
+		uiPnl.uiGrp = uiPnl.add( "group" );
+		uiPnl.uiGrp.location = [ 5, 35 ];
+		uiPnl.uiGrp.size = [ ( uiPnl.size[0] - 10 ), ( uiPnl.size[1] - 40 ) ]
+		setObjColor( uiPnl.uiGrp, [ 255, 255, 255 ] );
+		setObjColor( uiPnl.uiGrp, [ 128, 128, 128 ], 2 );
+		getLayer ( uiPnl.uiGrp, Comp );
+	}
+	// -------------------------------------------------------------------------------
+	// レイヤー構造の取得とパネル作成処理
+	//	--------------------------------------------------------------------------
+	//	flow : 構造格納用配列
+	//		flow[0]      : 最上位階層配列
+	//		flow[1-][0]  : Link元ID格納配列
+	//		flow[1-][1-] : 子ID格納）
+	//	--------------------------------------------------------------------------
+	//	uiGrp.uiBase : レイヤーグループのベースグループ
+	//		uiGrp.uiBase.location : グループ表示位置（左上座標）
+	//		uiGrp.uiBase.size　　 : グループサイズ（幅、高さ）
+	//		uiGrp.uiBase.duration : レイヤーグループ（コンポ）の全尺
+	//	--------------------------------------------------------------------------
+	//	uiGrp.uiBase.uiPnl : レイヤーパネル
+	//		uiGrp.uiBase.uiPnl[1-].id       : レイヤーインデックス
+	//		uiGrp.uiBase.uiPnl[1-].location : パネル表示位置（左上座標）
+	//		uiGrp.uiBase.uiPnl[1-].x        : オリジナルinPoint値
+	//		uiGrp.uiBase.uiPnl[1-].links    : リンク先情報（配列）
+	//		uiGrp.uiBase.uiPnl[1-].cID      : 子ID格納
+	// -------------------------------------------------------------------------------
+	function getLayer ( uiGrp, Comp )
+	{
+		// -----------------------------------------------------------------------
+		// 階層情報取得処理
+		// -----------------------------------------------------------------------
+		var flow = new Array([]);
+		for ( var i = 1; i <= Comp.layers.length; i++ )
+		{
+			var layer = Comp.layers[i];
+			// ---------------------------------------------------------------
+			// 階層情報取得処理
+			// ---------------------------------------------------------------
+			var pn = ( layer.parent ) ? layer.parent.index : 0;
+			if ( !flow[pn] ) flow[pn] = new Array([]);
+			flow[pn].push(i);
+			// ---------------------------------------------------------------
+			// Link情報取得処理
+			// ---------------------------------------------------------------
+			if ( pn > 0 || !layer("ADBE Effect Parade")("Link") ) continue;
+			var ln = layer("ADBE Effect Parade")("Link")(1).value;
+			if ( !flow[ln] ) flow[ln] = new Array([]);
+			flow[ln][0].push(i);
+		}
+		// -----------------------------------------------------------------------
+		// uiBaseグループの作成
+		// -----------------------------------------------------------------------
+		uiGrp.uiBase = uiGrp.add( "group" );
+		uiGrp.uiBase.location = [ 10, 10 ];
+		uiGrp.uiBase.size = [ ( uiGrp.size[0] - 20 ), ( uiGrp.size[1] - 20 ) ];
+		uiGrp.uiBase.comp = Comp;
+		setObjColor ( uiGrp.uiBase, [ 215, 220, 230 ] );
+		// -----------------------------------------------------------------------
+		// レイヤー情報取得と構造作成処理
+		// -----------------------------------------------------------------------
+		var y = 0;
+		uiGrp.uiBase.uiPnl = new Array();
+		for ( var i in flow[0] )
+		{
+			var id = flow[0][i];
+			var x = Comp.layers[id].startTime;
+			uiGrp.uiBase.size.height = ( y + 35 );
+			do {
+				// -------------------------------------------------------
+				// レイヤー位置の補正
+				// -------------------------------------------------------
+				var inPoint = Comp.layers[id].inPoint;
+				//alert( Comp.displayStartTime );
+				if ( !Comp.layers[id].locked )
+					Comp.layers[id].startTime += ( x - inPoint );
+				// -------------------------------------------------------
+				// レイヤーパネルの作成と基本設定
+				// -------------------------------------------------------
+				uiGrp.uiBase.uiPnl[id] = uiGrp.uiBase.add( "panel" );
+				uiGrp.uiBase.uiPnl[id].id       = id;
+				uiGrp.uiBase.uiPnl[id].location = [ 0, y ];
+				uiGrp.uiBase.uiPnl[id].x = ( inPoint / uiObj.fDuration );
+				makePanel ( uiGrp.uiBase.uiPnl[id], Comp.layers[id] );
+				x = Comp.layers[id].outPoint;
+				if ( Comp.duration < x && uiGrp.uiBase.uiPnl[id].enabled )
+					Comp.duration = x;
+				if ( !flow[id] ) break;
+				// -------------------------------------------------------
+				// 拡張設定（リンク、親子）
+				// -------------------------------------------------------
+				if ( flow[id][0] )
+					uiGrp.uiBase.uiPnl[id].links = flow[id][0];
+				if ( flow[id][1] )
+					uiGrp.uiBase.uiPnl[id].cID   = flow[id][1];
+				id = flow[id][1];
+			} while ( id )
+			// ---------------------------------------------------------------
+			// レイヤーグループの高さ設定
+			// ---------------------------------------------------------------
+			uiGrp.size.height = ( uiGrp.uiBase.size.height + 20 );
+			uiGrp.parent.size.height = ( uiGrp.size.height + 45 );
+			y = ( uiGrp.uiBase.uiPnl[flow[0][i]].bounds.bottom + 5 );
+		}
+		uiGrp.uiBase.duration = ( Comp.duration / uiObj.fDuration );
+		for ( var i in flow[0] )
+		{
+			var id = flow[0][i];
+			do {
+
+				if ( uiGrp.uiBase.uiPnl[id].links )
+				{
+					for ( var s in uiGrp.uiBase.uiPnl[id].links )
+					{
+						var ln = uiGrp.uiBase.uiPnl[id].links[s];
+						var diff =  ( 
+						( ( uiGrp.uiBase.uiPnl[id].inPoint +
+						( uiGrp.uiBase.uiPnl[ln].x -
+							uiGrp.uiBase.uiPnl[id].x ) ) -
+						uiGrp.uiBase.uiPnl[ln].inPoint ) *
+									uiObj.fDuration );
+						do {
+							Comp.layers[ln].startTime += diff;
+							uiGrp.uiBase.uiPnl[ln].startTime =
+						 	( Comp.layers[ln].startTime /
+								uiObj.fDuration );
+							uiGrp.uiBase.uiPnl[ln].inPoint   =
+							( Comp.layers[ln].inPoint   /
+								uiObj.fDuration );
+							ln = uiGrp.uiBase.uiPnl[ln].cID;
+						} while ( ln )
+					}
+				}
+				if ( !flow[id] ) break;
+				id = flow[id][1];
+			} while ( id )
+		}
+	}
