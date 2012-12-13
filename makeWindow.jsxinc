@@ -1,0 +1,199 @@
+  // ===============================================================================
+	// メニュー構成
+	// ===============================================================================
+	function setMenu ( uiWin )
+	{
+		uiWin.uiMenu = uiWin.add( "panel",
+					[ 0, 0, uiObj.winSize[0], uiObj.menuSize ] );
+		// -----------------------------------------------------------------------
+		// ZOOMバーの設置
+		// -----------------------------------------------------------------------
+		var uiPnl = uiWin.uiMenu.add( "panel", [ 10, 0, 70, 30 ], "zoom" );
+		uiWin.uiMenu.uiSlider = uiPnl.add( "slider", [ 5, 5, 50, 20 ], 0, 1, 3 );
+		uiWin.uiMenu.uiSlider.value      = ( uiObj.Size / 5 );
+		uiWin.uiMenu.uiSlider.helpTip    = uiObj.Size;
+		uiWin.uiMenu.uiSlider.onChanging = setZoom;
+		// -----------------------------------------------------------------------
+		// RAMﾌﾟﾚﾋﾞｭｰボタンの設置
+		// -----------------------------------------------------------------------
+		uiWin.uiMenu.uiBtn = uiWin.uiMenu.add( "button" );
+		uiWin.uiMenu.uiBtn.text     = "RAMﾌﾟﾚﾋﾞｭｰ";
+		uiWin.uiMenu.uiBtn.location = [ 75, 5 ];
+		uiWin.uiMenu.uiBtn.size     = [ 80, 25 ];
+		uiWin.uiMenu.uiBtn.onClick  = test2;
+		// -----------------------------------------------------------------------
+		// 開始フレーム設定
+		// -----------------------------------------------------------------------
+		var sFrame = uiWin.uiMenu.add( "panel", undefined, "start" );
+		sFrame.location       = [ ( uiWin.uiMenu.uiBtn.bounds.right + 10 ), 0 ];
+		sFrame.size           = [ 60, 32 ];
+			// ---------------------------------------------------------------
+			uiWin.uiMenu.uiStart        = sFrame.add( "edittext" );
+			uiWin.uiMenu.uiStart.bounds = [ 5, 6, 50, 21 ];
+		// -----------------------------------------------------------------------
+		// 終了フレーム設定
+		// -----------------------------------------------------------------------
+		var eFrame      = uiWin.uiMenu.add( "panel", undefined, "end" );
+		eFrame.location = [ ( sFrame.bounds.right + 5 ), 0 ];
+		eFrame.size     = sFrame.size;
+			// ---------------------------------------------------------------
+			uiWin.uiMenu.uiEnd        = eFrame.add( "edittext" );
+			uiWin.uiMenu.uiEnd.bounds = uiWin.uiMenu.uiStart.bounds;
+		// -----------------------------------------------------------------------
+		// 全尺フレーム設定
+		// -----------------------------------------------------------------------
+		var aFrame      = uiWin.uiMenu.add( "panel", undefined, "length" );
+		aFrame.location = [ ( eFrame.bounds.right + 5 ), 0 ];
+		aFrame.size     = [ 120, 32 ];
+			// ---------------------------------------------------------------
+			uiWin.uiMenu.uiLength         = aFrame.add( "edittext" );
+			uiWin.uiMenu.uiLength.bounds  = uiWin.uiMenu.uiEnd.bounds;
+			uiWin.uiMenu.uiLength.enabled = false;
+			aFrame.add( "statictext",
+				[ ( uiWin.uiMenu.uiLength.bounds[2] + 5 ),
+				  uiWin.uiMenu.uiLength.bounds[1],
+				  ( aFrame.size[0] - 5 ), 21 ], "/ "+uiObj.Duration );
+	}
+	// ===============================================================================
+	// ウィンドウリ作成処理
+	// ===============================================================================
+	function buildWin ( Obj )
+	{
+		// -----------------------------------------------------------------------
+		// Main Windowの設置
+		// -----------------------------------------------------------------------
+		var uiWin      = ( Obj instanceof Panel ) ? Obj :
+		new Window( "palette", undefined, undefined, { resizeable:true } );
+		if ( uiWin instanceof Window) uiWin.show();
+		uiWin.text     = uiObj.Name+" ver."+uiObj.version;
+		uiWin.size     = uiObj.winSize;
+		uiWin.onResize = reSize;
+		// -----------------------------------------------------------------------
+		// uiWin.uiMenuの設置
+		// -----------------------------------------------------------------------
+		setMenu ( uiWin );
+		uiWin.uiMenu.uiStart.text = ( uiObj.Start + uiObj.displayStartFrame );
+		// -----------------------------------------------------------------------
+		// uiWin.uiMainパネルの設置
+		// -----------------------------------------------------------------------
+		uiWin.uiMain = uiWin.add( "panel", [ 0, uiObj.menuSize, 0, 0 ] );
+		uiWin.uiMain.bounds.right  = ( uiWin.size[0] - uiObj.sbSize );
+		uiWin.uiMain.bounds.bottom = ( uiWin.size[1] - uiObj.sbSize );
+		uiWin.uiMain.layer = uiObj.selItem;
+		setObjColor( uiWin.uiMain, [ 100, 100, 100 ] );
+		// -----------------------------------------------------------------------
+		// uiWin.uiGrpグループの設置
+		// -----------------------------------------------------------------------
+		uiWin.uiGrp = uiWin.uiMain.add( "group", [ 0, 0, 0, 0 ] );
+		uiWin.uiGrp.size        = [ 0, 35 ];
+		setObjColor( uiWin.uiGrp, [ 225, 230, 230 ] );
+		// -----------------------------------------------------------------------
+		getLayer ( uiWin.uiGrp, uiObj.selItem );
+		uiWin.uiGrp.size.width = ( uiWin.uiGrp.uiBase.duration * uiObj.Size );
+		setPanelSize  ( uiWin.uiGrp.uiBase );
+		// -----------------------------------------------------------------------
+		// スクロールバー(uiWin.uiSB)の設置
+		// -----------------------------------------------------------------------
+		uiWin.uiSB = new Array(2);
+		for ( var i = 0; i < 2; i++ )
+		{
+			uiWin.uiSB[i]            = uiWin.add( "scrollbar" );
+			uiWin.uiSB[i].minvalue   = uiWin.uiMain.size[i];
+			uiWin.uiSB[i].maxvalue   = uiWin.uiGrp.size[i];
+			uiWin.uiSB[i].onChanging = Scroll;
+		}
+		resizeSB ( uiWin );
+		//uiWin.uiMenu.uiLength.text = getTotalLength( uiWin.uiGrp );
+		//uiWin.uiMenu.uiEnd.text = ( ( uiWin.uiMenu.uiStart.text - 0 )
+		//				+ ( uiWin.uiMenu.uiLength.text - 0 ) );
+		return uiWin
+	}
+	// ===============================================================================
+	// ズーム処理
+	// ===============================================================================
+	function setZoom ()
+	{
+		this.value             = Math.round( this.value );
+		uiObj.Size             = ( this.value ) * 5;
+		uiWin.uiGrp.size.width = ( uiWin.uiGrp.uiBase.duration * uiObj.Size );
+		this.helpTip           = uiObj.Size;
+		setPanelSize ( uiWin.uiGrp.uiBase );
+	}
+	// ===============================================================================
+	// ウィンドウリサイズ処理
+	// ===============================================================================
+	function reSize ()
+	{
+		this.uiMenu.size.width    = this.size.width;
+		this.uiMain.bounds.right  = ( this.size.width  - 16 );
+		this.uiMain.bounds.bottom = ( this.size.height - 16 );
+		resizeSB ( this );
+	}
+	// ===============================================================================
+	// スクロール処理
+	// ===============================================================================
+	function Scroll ()
+	{
+		var i   = ( this.size[1] == 16 ) ? 0 : 1;
+		var pos = this.parent.uiGrp.location;
+		pos[i]  = ( this.parent.uiMain.size[i] - Math.floor( this.value ) );
+		this.parent.uiGrp.location = pos;
+	}
+	// ===============================================================================
+	// スクロールバーのリサイズ処理
+	// ===============================================================================
+	function resizeSB ( uiWin )
+	{
+		var uiMain = uiWin.uiMain;
+		var uiGrp  = uiWin.uiGrp;
+		for ( var i = 0; i < uiWin.uiSB.length; i++ )
+		{
+			var uiSB = uiWin.uiSB[i];
+			// ---------------------------------------------------------------
+			// スクロールバーの設定
+			// ---------------------------------------------------------------
+			uiSB.bounds = [ uiMain.bounds[(i*2)], uiMain.bounds[3-(i*2)],
+					( i == 0 ) ? uiMain.bounds[2] : uiWin.size[0],
+					( i == 0 ) ? uiWin.size[1] : uiMain.bounds[3] ];
+			// ---------------------------------------------------------------
+			// ウィンドウリサイズによる配置の再設定処理
+			// ---------------------------------------------------------------
+			if ( uiGrp.bounds[i] < 0 && uiGrp.bounds[(2+i)] < uiMain.size[i] )
+			uiGrp.location[i] += ( uiMain.size[i] - uiGrp.bounds[(2+i)] );
+			// ---------------------------------------------------------------
+			// スクロールバーの有効化・無効化の判定処理
+			// ---------------------------------------------------------------
+			uiSB.enabled = ( uiGrp.size[i] < uiMain.size[i] ) ? false : true;
+			// ---------------------------------------------------------------
+			// スクロールバーの最小値を設定
+			// ---------------------------------------------------------------
+			uiSB.minvalue = ( uiSB.enabled ) ? uiSB.size[i] : uiGrp.size[i];
+			// ---------------------------------------------------------------
+			// スクロールバーの値の設定
+			// ---------------------------------------------------------------
+			uiSB.value = ( uiMain.size[i] - uiGrp.location[i] );
+		}
+	}
+	// ===============================================================================
+	// BG Colorのセットアップ関数
+	// ===============================================================================
+	function setObjColor( Target, Colors, Type )
+	{
+		var flag = true;
+		for ( var i in Colors )
+			if ( Math.floor(Colors[i]) != Math.ceil(Colors[i]) ) flag = false;
+		if ( flag ) for ( var i in Colors ) Colors[i] = ( Colors[i] / 255 );
+		var Brush = Target.graphics.newBrush(
+					Target.graphics.BrushType.SOLID_COLOR, Colors );
+		switch ( Type )
+		{
+			case 1: Target.graphics.foregroundColor = Brush;
+			break;
+			case 2: Target.graphics.disabledBackgroundColor = Brush;
+			break;
+			case 3: Target.graphics.disabledForegroundColor = Brush;
+			break;
+			default: Target.graphics.backgroundColor = Brush;
+			break;
+		}
+	}
